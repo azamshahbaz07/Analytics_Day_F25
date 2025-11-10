@@ -3,15 +3,11 @@ import requests
 import os
 import time
 
-# --- 1. CONFIGURATION ---
-
 CENSUS_API_KEY = "4991b9654fa08ce00f935525dbfc2fd634b95bf0"
 
-# Target Years: ACS 1-Year data runs from 2010 up to the most recent release (typically 2023)
 START_YEAR = 2010
 END_YEAR = 2023
 
-# Target CBSA Codes (Mapped from your 12 city names)
 TARGET_CBSA_MAPPING = {
     "New York-Newark-Jersey City, NY-NJ-PA": "35620",
     "Los Angeles-Long Beach-Anaheim, CA": "31080",
@@ -27,7 +23,6 @@ TARGET_CBSA_MAPPING = {
     "San Diego-Carlsbad, CA": "41740"
 }
 
-# Source: U.S. Census Bureau 2020 Land Area (sq mi) for the 12 CBSAs.
 CBSA_LAND_AREA_SQMI = {
     "35620": 13374.80, # New York-Newark-Jersey City
     "31080": 4850.70,  # Los Angeles-Long Beach-Anaheim
@@ -43,7 +38,6 @@ CBSA_LAND_AREA_SQMI = {
     "41740": 4205.50   # San Diego-Carlsbad
 }
 
-# Variables to fetch from the DETAILED endpoint (All B-tables)
 VARIABLES_TO_FETCH = [
     "NAME",
     "B01003_001E",      # Total Population
@@ -66,7 +60,6 @@ VARIABLES_TO_FETCH = [
     "B23001_008E"       # Unemployed
 ]
 
-# Rename map for clarity
 COLUMN_RENAME_MAP = {
     'B01003_001E': 'Total_Population',
     'B19013_001E': 'Median_Household_Income_USD',
@@ -88,12 +81,9 @@ COLUMN_RENAME_MAP = {
 
 OUTPUT_FILENAME = "socioeconomic.csv"
 
-# --- 2. API CALL FUNCTION ---
-
 def fetch_census_data(year, cbsa_codes, api_key, variables):
     """Fetches data using the stable /acs/acs1 endpoint."""
     
-    # Using the standard /acs/acs1 endpoint for all B-tables
     base_url = f"https://api.census.gov/data/{year}/acs/acs1"
     geography = ",".join(cbsa_codes)
     
@@ -123,8 +113,6 @@ def fetch_census_data(year, cbsa_codes, api_key, variables):
         print(f"  An unexpected error occurred for {year}: {e}. Skipping this year.")
         return pd.DataFrame()
 
-# --- 3. MAIN EXECUTION ---
-
 if __name__ == "__main__":
     
     all_socioeconomic_data = []
@@ -138,27 +126,23 @@ if __name__ == "__main__":
         df_year = fetch_census_data(year, cbsa_codes, CENSUS_API_KEY, VARIABLES_TO_FETCH)
         
         if not df_year.empty:
-            # Add the official CBSA Name back using the mapping
+
             name_map = {code: name for name, code in TARGET_CBSA_MAPPING.items()}
             df_year['CBSA_Name'] = df_year['CBSA_Code'].astype(str).map(name_map)
             all_socioeconomic_data.append(df_year)
             
-        time.sleep(0.5) # API courtesy
+        time.sleep(0.5) 
 
-    # Concatenate all annual data
     if all_socioeconomic_data:
         master_df = pd.concat(all_socioeconomic_data, ignore_index=True)
         
-        # Convert all relevant count columns to numeric
         raw_count_cols = [
             col for col in master_df.columns 
             if col not in ['Year', 'CBSA_Name', 'CBSA_Code', 'NAME', 'Median_Household_Income_USD']
         ]
         for col in raw_count_cols:
-             # Use errors='coerce' to turn any non-numeric Census codes (like '(X)') into NaN
              master_df[col] = pd.to_numeric(master_df[col], errors='coerce')
 
-        # --- 4. CALCULATE DERIVED VARIABLES ---
         
         # 1. Population Density
         area_map = {code: area for code, area in CBSA_LAND_AREA_SQMI.items()}
@@ -202,8 +186,6 @@ if __name__ == "__main__":
             master_df['Labor_Unemployed'] / master_df['Labor_Civilian_Labor_Force']
         ) * 100
         
-        # --- 5. Final Column Selection and Save ---
-        
         final_columns = [
             'Year', 'CBSA_Name', 'CBSA_Code', 
             'Total_Population', 'Population_Density',
@@ -214,7 +196,6 @@ if __name__ == "__main__":
         
         master_df = master_df[final_columns].sort_values(by=['CBSA_Name', 'Year']).reset_index(drop=True)
 
-        # Save the final result
         master_df.to_csv(OUTPUT_FILENAME, index=False)
 
         print(f"\n--- Script Complete ---")
