@@ -5,7 +5,6 @@ import time
 
 # --- 1. CONFIGURATION ---
 
-# 🛑 CRITICAL: YOUR CENSUS API KEY
 CENSUS_API_KEY = "4991b9654fa08ce00f935525dbfc2fd634b95bf0"
 
 # Target Years: ACS 1-Year data runs from 2010 up to the most recent release (typically 2023)
